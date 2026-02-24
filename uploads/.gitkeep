@@ -1,0 +1,3 @@
+# Folder ini untuk penyimpanan file bukti audit (evidence uploads).
+# Isi folder ini di-ignore oleh .gitignore — hanya file ini yang di-commit
+# agar struktur folder tetap ada di repository.

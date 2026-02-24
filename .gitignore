@@ -1,0 +1,25 @@
+# ============================================================
+# OCTAVE Allegro Audit Platform - .gitignore
+# ============================================================
+
+# Jangan upload file .env ke GitHub (berisi password & API key)
+.env
+
+# Folder uploads (file bukti audit pengguna)
+/uploads/*
+!/uploads/.gitkeep
+
+# PHP error logs
+*.log
+error_log
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor/IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
