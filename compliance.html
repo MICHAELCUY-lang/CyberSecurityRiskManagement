@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Compliance Score — CyberRisk Pro</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div class="app">
+        <div class="main">
+            <header class="topbar">
+                <button class="hamburger" onclick="toggleSidebar()"><svg viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="1.75">
+                        <line x1="3" y1="12" x2="21" y2="12" />
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <line x1="3" y1="18" x2="21" y2="18" />
+                    </svg></button>
+                <div class="page-header">
+                    <div class="page-title">Compliance Score</div>
+                    <div class="breadcrumb"><span>Compliance</span><span class="bc-sep">/</span><span
+                            class="bc-cur">Compliance Score</span></div>
+                </div>
+                <div class="topbar-actions">
+                    <a class="btn btn-primary btn-sm" href="reports.html">Export Report</a>
+                </div>
+            </header>
+            <main class="page">
+                <div class="g2">
+
+                    <!-- Gauge + Framework -->
+                    <div class="card">
+                        <div class="card-label mb-0">Overall Compliance Score</div>
+                        <div class="gauge-wrap">
+                            <canvas id="gauge" class="gauge-canvas" width="260" height="155"></canvas>
+                            <div class="gauge-pct text-green">62%</div>
+                            <div class="gauge-status warn">Needs Improvement</div>
+                        </div>
+                        <hr />
+                        <div class="card-label">By Framework</div>
+                        <div style="display:flex;flex-direction:column;gap:10px">
+                            <div>
+                                <div class="flex justify-between mb-2"><span class="text-sm fw-500">ISO
+                                        27001</span><span class="mono fw-600 text-green text-sm">68%</span></div>
+                                <div class="progress">
+                                    <div class="progress-bar green" style="width:68%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-2"><span class="text-sm fw-500">NIST CSF</span><span
+                                        class="mono fw-600 text-amber text-sm">55%</span></div>
+                                <div class="progress">
+                                    <div class="progress-bar amber" style="width:55%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-2"><span class="text-sm fw-500">PCI DSS</span><span
+                                        class="mono fw-600 text-red text-sm">43%</span></div>
+                                <div class="progress">
+                                    <div class="progress-bar red" style="width:43%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Domain Breakdown -->
+                    <div class="card">
+                        <div class="card-label">Domain Compliance Breakdown</div>
+                        <div id="domains"></div>
+                        <hr />
+                        <div class="card-label">Key Observations</div>
+                        <div class="insight-row">
+                            <span class="insight-severity info">Good</span>
+                            <div class="insight-text"><strong>Access Control (85%)</strong> — MFA deployed. Role-based
+                                access controls in place.</div>
+                        </div>
+                        <div class="insight-row">
+                            <span class="insight-severity warn">Warning</span>
+                            <div class="insight-text"><strong>Vulnerability Management (50%)</strong> — Patching cadence
+                                is inconsistent. Monthly scans not confirmed.</div>
+                        </div>
+                        <div class="insight-row">
+                            <span class="insight-severity crit">Critical</span>
+                            <div class="insight-text"><strong>Audit Logging (30%)</strong> — No centralised SIEM
+                                deployed. ISO 27001 A.12.4 non-compliant.</div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal" id="modal-body"></div>
+    </div>
+    <script src="sidebar.js"></script>
+    <script src="app.js"></script>
+    <script>
+        drawGauge('gauge', 62);
+
+        const DOMAINS = [
+            { name: 'Access Control', pct: 85 },
+            { name: 'Cryptography & Encryption', pct: 90 },
+            { name: 'Vulnerability Management', pct: 50 },
+            { name: 'Audit Logging & Monitoring', pct: 30 },
+            { name: 'Incident Response', pct: 75 },
+            { name: 'Third-Party Risk Management', pct: 40 },
+            { name: 'Physical Security', pct: 80 },
+            { name: 'Security Awareness Training', pct: 70 },
+        ];
+
+        const domCol = p => p >= 75 ? 'green' : p >= 50 ? 'amber' : 'red';
+        const domColVar = p => p >= 75 ? 'var(--green)' : p >= 50 ? 'var(--amber)' : 'var(--red)';
+
+        document.getElementById('domains').innerHTML = DOMAINS.map(d => `
+  <div style="margin-bottom:13px">
+    <div class="flex justify-between mb-2">
+      <span class="text-sm">${d.name}</span>
+      <span class="mono fw-600 text-sm" style="color:${domColVar(d.pct)}">${d.pct}%</span>
+    </div>
+    <div class="progress"><div class="progress-bar ${domCol(d.pct)}" style="width:${d.pct}%"></div></div>
+  </div>`).join('');
+    </script>
+</body>
+
+</html>

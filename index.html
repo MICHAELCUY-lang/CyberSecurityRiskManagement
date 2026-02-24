@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Dashboard — CyberRisk Pro</title>
+    <meta name="description" content="AI-Assisted Cybersecurity Risk Assessment Dashboard" />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+        .rd-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .rd-row:last-of-type {
+            margin-bottom: 0;
+        }
+
+        .rd-lbl {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            width: 56px;
+            flex-shrink: 0;
+        }
+
+        .rd-wrap {
+            flex: 1;
+            height: 9px;
+            background: rgba(255, 255, 255, .05);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .rd-bar {
+            height: 100%;
+            border-radius: 5px;
+            transition: width .6s ease;
+        }
+
+        .rd-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            width: 18px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <div class="main">
+
+            <header class="topbar">
+                <button class="hamburger" onclick="toggleSidebar()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                        <line x1="3" y1="12" x2="21" y2="12" />
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <line x1="3" y1="18" x2="21" y2="18" />
+                    </svg>
+                </button>
+                <div class="page-header">
+                    <div class="page-title">Dashboard</div>
+                    <div class="breadcrumb"><span>CyberRisk Pro</span><span class="bc-sep">/</span><span
+                            class="bc-cur">Dashboard</span></div>
+                </div>
+                <div class="topbar-actions">
+                    <button class="btn btn-ghost btn-sm"
+                        onclick="showToast('info','Sync','Data synchronised.')">Sync</button>
+                    <a class="btn btn-primary btn-sm" href="reports.html">Export Report</a>
+                </div>
+            </header>
+
+            <main class="page">
+
+                <!-- Critical Alert -->
+                <div class="alert alert-red">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                        <path
+                            d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    <div>
+                        <div class="alert-title">4 Critical Findings Require Immediate Action</div>
+                        <div class="alert-body">SQL Injection · Exposed Ports · Default Credentials · Missing Audit Logs
+                            —
+                            <a href="findings.html" style="color:var(--red);font-weight:600">View all findings</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Total Assets</div>
+                        <div class="kpi-value" id="kVal1">12</div>
+                        <div class="kpi-trend">+2 from last week</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Identified Threats</div>
+                        <div class="kpi-value">28</div>
+                        <div class="kpi-trend">+5 new this cycle</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Avg. Risk Score</div>
+                        <div class="kpi-value">7.4</div>
+                        <div class="kpi-trend">Above high threshold</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Compliance Rate</div>
+                        <div class="kpi-value">62%</div>
+                        <div class="kpi-trend">+8% this month</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Critical Findings</div>
+                        <div class="kpi-value">4</div>
+                        <div class="kpi-trend">Action required</div>
+                    </div>
+                </div>
+
+                <div class="g2">
+
+                    <!-- Risk Distribution Summary (replaces heatmap) -->
+                    <div class="card">
+                        <div class="card-hd">
+                            <div class="card-label mb-0">Risk Distribution</div>
+                            <a href="risk-assessment.html" class="btn btn-ghost btn-sm">View Details</a>
+                        </div>
+
+                        <div class="rd-row">
+                            <span class="rd-lbl" style="color:var(--red)">Critical</span>
+                            <div class="rd-wrap">
+                                <div class="rd-bar" style="width:16%;background:var(--red)"></div>
+                            </div>
+                            <span class="rd-num" style="color:var(--red)">4</span>
+                        </div>
+                        <div class="rd-row">
+                            <span class="rd-lbl" style="color:var(--red)">High</span>
+                            <div class="rd-wrap">
+                                <div class="rd-bar" style="width:28%;background:rgba(232,64,64,.6)"></div>
+                            </div>
+                            <span class="rd-num" style="color:var(--red)">7</span>
+                        </div>
+                        <div class="rd-row">
+                            <span class="rd-lbl" style="color:var(--blue)">Medium</span>
+                            <div class="rd-wrap">
+                                <div class="rd-bar" style="width:44%;background:var(--blue)"></div>
+                            </div>
+                            <span class="rd-num" style="color:var(--blue)">11</span>
+                        </div>
+                        <div class="rd-row">
+                            <span class="rd-lbl" style="color:var(--blue)">Low</span>
+                            <div class="rd-wrap">
+                                <div class="rd-bar" style="width:24%;background:rgba(72,130,245,.5)"></div>
+                            </div>
+                            <span class="rd-num" style="color:var(--blue)">6</span>
+                        </div>
+
+                        <hr />
+                        <div class="flex" style="font-size:11px;color:var(--t3)">
+                            <span>28 risks across 12 assets</span>
+                            <span style="margin-left:auto;color:var(--red);font-weight:600">11 require action</span>
+                        </div>
+                    </div>
+
+                    <!-- AI Insights -->
+                    <div class="card">
+                        <div class="card-hd">
+                            <div class="card-label mb-0">Security Insights</div>
+                            <a href="ai-assistant.html" class="btn btn-ghost btn-sm">Ask AI</a>
+                        </div>
+                        <div class="insight-row">
+                            <span class="insight-severity crit">Critical</span>
+                            <div class="insight-text"><strong>SQL Injection</strong> — Web portal shows high injection
+                                risk. Implement parameterised queries immediately. Est. effort: 2–3 days.</div>
+                        </div>
+                        <div class="insight-row">
+                            <span class="insight-severity warn">Warning</span>
+                            <div class="insight-text"><strong>Weak Passwords</strong> — 3 assets have insufficient
+                                password complexity. Enable MFA and enforce 12+ character policies.</div>
+                        </div>
+                        <div class="insight-row">
+                            <span class="insight-severity info">Good</span>
+                            <div class="insight-text"><strong>HTTPS Coverage</strong> — 8/12 assets enforce HTTPS.
+                                Remaining 4 should be upgraded before the next audit cycle.</div>
+                        </div>
+                        <div class="insight-row">
+                            <span class="insight-severity tip">Advisory</span>
+                            <div class="insight-text"><strong>SIEM Deployment</strong> — Centralised audit logging
+                                estimated to improve threat detection efficiency by 65%.</div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="g2">
+                    <!-- Activity Timeline -->
+                    <div class="card">
+                        <div class="card-label">Recent Audit Activity</div>
+                        <div class="timeline">
+                            <div class="tl-item">
+                                <div class="tl-dot red"></div>
+                                <div>
+                                    <div class="tl-text">Critical finding raised — SQL Injection in Customer Portal
+                                    </div>
+                                    <div class="tl-meta">Today, 09:15 &middot; John Doe</div>
+                                </div>
+                            </div>
+                            <div class="tl-item">
+                                <div class="tl-dot blue"></div>
+                                <div>
+                                    <div class="tl-text">Asset registered — Cloud Storage (AWS S3)</div>
+                                    <div class="tl-meta">Today, 08:40 &middot; Jane Smith</div>
+                                </div>
+                            </div>
+                            <div class="tl-item">
+                                <div class="tl-dot blue"></div>
+                                <div>
+                                    <div class="tl-text">Risk assessment completed — Database Server</div>
+                                    <div class="tl-meta">Yesterday, 16:30 &middot; John Doe</div>
+                                </div>
+                            </div>
+                            <div class="tl-item">
+                                <div class="tl-dot amber"></div>
+                                <div>
+                                    <div class="tl-text">Checklist updated — 3 items marked Compliant</div>
+                                    <div class="tl-meta">Yesterday, 14:10 &middot; Jane Smith</div>
+                                </div>
+                            </div>
+                            <div class="tl-item">
+                                <div class="tl-dot blue"></div>
+                                <div>
+                                    <div class="tl-text">Evidence uploaded — HTTPS Configuration Screenshot</div>
+                                    <div class="tl-meta">Feb 21, 11:00 &middot; Mike R.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Audit Checklist Status -->
+                    <div class="card">
+                        <div class="card-hd">
+                            <div class="card-label mb-0">Audit Checklist Status</div>
+                            <a href="checklist.html" class="btn btn-ghost btn-sm">View Checklist</a>
+                        </div>
+                        <div class="flex gap-3 mb-3" style="flex-wrap:wrap;font-size:11px;color:var(--t2)">
+                            <span class="flex gap-2 items-center">
+                                <span
+                                    style="width:8px;height:8px;border-radius:2px;background:var(--blue);display:inline-block;flex-shrink:0"></span>
+                                Compliant (8)
+                            </span>
+                            <span class="flex gap-2 items-center">
+                                <span
+                                    style="width:8px;height:8px;border-radius:2px;background:var(--border-2);display:inline-block;flex-shrink:0"></span>
+                                Partial (5)
+                            </span>
+                            <span class="flex gap-2 items-center">
+                                <span
+                                    style="width:8px;height:8px;border-radius:2px;background:var(--red);display:inline-block;flex-shrink:0"></span>
+                                Non-Compliant (3)
+                            </span>
+                            <span class="flex gap-2 items-center">
+                                <span
+                                    style="width:8px;height:8px;border-radius:2px;background:rgba(255,255,255,.1);display:inline-block;flex-shrink:0"></span>
+                                N/A (2)
+                            </span>
+                        </div>
+                        <div class="stack-progress" id="stackBar" style="height:10px;border-radius:5px"></div>
+                        <div class="flex mt-3" style="font-size:11px;color:var(--t3)">
+                            <span>18 controls assessed</span>
+                            <span style="margin-left:auto">
+                                <span style="color:var(--blue);font-weight:600">62%</span> compliant
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal" id="modal-body"></div>
+    </div>
+    <script src="sidebar.js"></script>
+    <script src="app.js"></script>
+    <script>
+        document.getElementById('kVal1').textContent = S.assets.length;
+
+        // Stacked progress bar (checklist)
+        const cl = S.checklist;
+        const c = cl.filter(x => x.status === 'Compliant').length, p = cl.filter(x => x.status === 'Partially Compliant').length;
+        const n = cl.filter(x => x.status === 'Non-Compliant').length, na = cl.filter(x => x.status === 'Not Applicable').length;
+        document.getElementById('stackBar').innerHTML = `
+    <div class="stack-bar green" style="flex:${c}"></div>
+    <div class="stack-bar amber" style="flex:${p}"></div>
+    <div class="stack-bar red"   style="flex:${n}"></div>
+    <div class="stack-bar muted" style="flex:${na}"></div>`;
+    </script>
+</body>
+
+</html>
