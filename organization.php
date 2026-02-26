@@ -1,11 +1,11 @@
 <?php
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/db_new.php';
 session_start();
 
 $pageTitle   = 'Organization';
 $currentPage = 'organization';
-$db = getDB();
+$db = getAuditDB();
 $message = '';
 $error   = '';
 

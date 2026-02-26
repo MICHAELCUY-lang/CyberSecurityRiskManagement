@@ -1,11 +1,11 @@
 <?php
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/db_new.php';
 session_start();
 
 $pageTitle   = 'Findings';
 $currentPage = 'findings';
-$db = getDB();
+$db = getAuditDB();
 
 $activeOrg = (int)($_SESSION['active_org'] ?? 0);
 
@@ -16,7 +16,7 @@ $validLevels = ['Low','Medium','High','Critical'];
 $params = [];
 $where  = '';
 if ($activeOrg) {
-    $where    = 'WHERE a.organization_id = ?';
+    $where    = 'WHERE au.organization_id = ?';
     $params[] = $activeOrg;
 }
 if ($filterLevel && in_array($filterLevel, $validLevels)) {
@@ -25,9 +25,9 @@ if ($filterLevel && in_array($filterLevel, $validLevels)) {
 }
 
 $findings = $db->prepare("
-    SELECT f.id, a.asset_name, f.issue, f.risk_level, f.recommendation, f.created_at
+    SELECT f.id, au.system_name, f.finding_text AS issue, f.risk_level, f.recommendation, f.created_at
     FROM findings f
-    JOIN assets a ON a.id = f.asset_id
+    JOIN audits au ON au.id = f.audit_id
     $where
     ORDER BY FIELD(f.risk_level,'Critical','High','Medium','Low'), f.created_at DESC
 ");
@@ -40,8 +40,8 @@ if ($activeOrg) {
     $allF = $db->prepare("
         SELECT f.risk_level, COUNT(*) AS cnt
         FROM findings f
-        JOIN assets a ON a.id=f.asset_id
-        WHERE a.organization_id=?
+        JOIN audits au ON au.id=f.audit_id
+        WHERE au.organization_id=?
         GROUP BY f.risk_level
     ");
     $allF->execute([$activeOrg]);
@@ -97,7 +97,7 @@ include __DIR__ . '/partials/sidebar.php';
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Asset</th>
+                            <th>System</th>
                             <th>Issue</th>
                             <th>Risk Level</th>
                             <th>Recommendation</th>
@@ -119,7 +119,7 @@ include __DIR__ . '/partials/sidebar.php';
                         ?>
                         <tr style="<?= $rowStyle ?>">
                             <td class="font-mono text-muted" style="white-space:nowrap;">F-<?= str_pad($f['id'], 4, '0', STR_PAD_LEFT) ?></td>
-                            <td><strong><?= htmlspecialchars($f['asset_name']) ?></strong></td>
+                            <td><strong><?= htmlspecialchars($f['system_name']) ?></strong></td>
                             <td style="font-size:12px;max-width:320px;"><?= htmlspecialchars($f['issue']) ?></td>
                             <td><span class="badge badge-<?= strtolower($f['risk_level']) ?>"><?= $f['risk_level'] ?></span></td>
                             <td style="font-size:12px;color:var(--text-muted);max-width:280px;">

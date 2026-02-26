@@ -15,6 +15,71 @@ $db      = getAuditDB();
 $user    = currentUser();
 $auditId = (int)($_GET['audit_id'] ?? 0);
 
+if (!$auditId) {
+    // If no audit_id, show list of audits to choose from
+    $activeOrg = (int)($_SESSION['active_org'] ?? 0);
+    $where = $activeOrg ? 'WHERE organization_id = ?' : '';
+    $params = $activeOrg ? [$activeOrg] : [];
+    
+    // Admin sees all, auditor sees own
+    if ($user['role'] !== 'admin') {
+        $where .= ($where ? ' AND ' : 'WHERE ') . 'auditor_id = ?';
+        $params[] = $user['id'];
+    }
+    
+    $auditsQuery = $db->prepare("SELECT id, system_name, audit_date FROM audits $where ORDER BY created_at DESC");
+    $auditsQuery->execute($params);
+    $availableAudits = $auditsQuery->fetchAll();
+    
+    include __DIR__ . '/partials/header.php';
+    include __DIR__ . '/partials/sidebar.php';
+    ?>
+    <div class="main-content">
+        <div class="page-header">
+            <h1>Security Checklist</h1>
+            <span class="breadcrumb">Select Audit</span>
+        </div>
+        <div class="content-area">
+            <?php if (!$activeOrg): ?>
+                <div class="alert alert-info">Please select an active organization first from the <a href="organization.php" style="color:inherit;text-decoration:underline;">Organization menu</a>.</div>
+            <?php elseif (empty($availableAudits)): ?>
+                <div class="alert alert-info">No audits found for this organization. <a href="new_audit.php" style="color:inherit;text-decoration:underline;">Start a new audit</a>.</div>
+            <?php else: ?>
+                <div class="card">
+                    <div class="card-title">Select an Audit to fill the Checklist</div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Audit ID</th>
+                                    <th>System Name</th>
+                                    <th>Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($availableAudits as $a): ?>
+                                <tr>
+                                    <td class="font-mono text-muted">#<?= $a['id'] ?></td>
+                                    <td><strong><?= htmlspecialchars($a['system_name']) ?></strong></td>
+                                    <td><?= htmlspecialchars($a['audit_date']) ?></td>
+                                    <td>
+                                        <a href="checklist.php?audit_id=<?= $a['id'] ?>" class="btn btn-ghost" style="font-size:11px;padding:4px 12px;">Fill Checklist →</a>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php include __DIR__ . '/partials/footer.php'; ?>
+    <?php
+    exit;
+}
+
 // Validate audit exists and belongs to this user (or admin)
 $stmt = $db->prepare("SELECT * FROM audits WHERE id = ?");
 $stmt->execute([$auditId]);

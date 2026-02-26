@@ -239,7 +239,7 @@ include __DIR__ . '/partials/sidebar.php';
             <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:8px;">
                 <a href="risk_criteria.php?audit_id=<?= $selectedAuditId ?>"
                    class="btn btn-ghost" style="flex:1;text-align:center;font-size:10px;">← Step 1</a>
-                <a href="vulnerabilities.php?audit_id=<?= $selectedAuditId ?>"
+                <a href="vulnerabilities.php<?= !empty($assets) ? '?asset_id='.$assets[0]['id'] : '' ?>"
                    class="btn" style="flex:1;text-align:center;font-size:10px;">OWASP Vuln →</a>
             </div>
         </div>

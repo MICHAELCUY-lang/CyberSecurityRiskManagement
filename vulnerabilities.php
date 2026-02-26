@@ -185,7 +185,7 @@ include __DIR__ . '/partials/sidebar.php';
             </div>
             
             <button type="submit" class="btn">Save Vulnerabilities & Auto-Generate Threats</button>
-            <a href="threat_scenarios.php" class="btn btn-ghost" style="margin-left:8px;">Review Threat Scenarios →</a>
+            <a href="threat_scenarios.php<?= $asset['audit_id'] ? '?audit_id='.$asset['audit_id'] : '' ?>" class="btn btn-ghost" style="margin-left:8px;">Review Threat Scenarios →</a>
         </form>
 
     </div>

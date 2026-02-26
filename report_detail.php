@@ -381,14 +381,15 @@ include __DIR__ . '/partials/sidebar.php';
             <?php endif ?>
         </div>
 
-        <div style="margin-top:8px;display:flex;gap:12px;" class="no-print">
+        <div style="margin-top:8px;display:flex;gap:12px;align-items:center;" class="no-print">
             <a href="reports.php" class="btn btn-ghost">← All Reports</a>
             <?php if (!$aiReport): ?>
             <a href="ai_analysis.php?audit_id=<?= $auditId ?>" class="btn">◎ Generate AI Analysis</a>
             <?php endif ?>
             <a href="risk_register.php?audit_id=<?= $auditId ?>" class="btn btn-ghost">◆ Risk Register</a>
             <button onclick="window.print()" class="btn btn-ghost">🖨 Print Report</button>
-            <button onclick="exportToPDF()" class="btn btn-ghost" style="color:#dc2626;">📄 Export PDF</button>
+            <button onclick="exportToPDF()" class="btn btn-ghost" style="color:#dc2626;" id="exportBtn">📄 Export PDF</button>
+            <span id="exportStatus" style="font-size:11px; font-weight:700; display:none;"></span>
         </div>
 
         <?php if ($oaCriteria || !empty($oaAssets) || !empty($oaRisks)): ?>
@@ -538,7 +539,17 @@ include __DIR__ . '/partials/sidebar.php';
 <!-- Include html2pdf.js for native PDF export -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
-function exportToPDF() {
+async function exportToPDF() {
+    const btn = document.getElementById('exportBtn');
+    const status = document.getElementById('exportStatus');
+    
+    // UI Loading State
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    status.style.display = 'inline-block';
+    status.style.color = '#4a8cff';
+    status.innerText = '⏳ Generating PDF... Please wait.';
+
     // Hide purely interactive UI for export
     const noPrintElems = document.querySelectorAll('.no-print');
     noPrintElems.forEach(el => el.style.display = 'none');
@@ -548,19 +559,35 @@ function exportToPDF() {
     printOnlyElems.forEach(el => el.style.display = 'block');
 
     const opt = {
-      margin:       0.5,
+      margin:       0.4,
       filename:     'Audit_Report_<?= htmlspecialchars(preg_replace('/[^a-zA-Z0-9]+/', '_', $audit['system_name'])) ?>.pdf',
       image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      html2canvas:  { scale: 2, useCORS: true, logging: false },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
     };
     
     const element = document.querySelector('.content-area');
-    html2pdf().set(opt).from(element).save().then(() => {
+    
+    try {
+        await html2pdf().set(opt).from(element).save();
+        status.style.color = '#22c55e';
+        status.innerText = '✔ PDF Downloaded Successfully!';
+    } catch (err) {
+        console.error("PDF Export Error:", err);
+        status.style.color = '#dc2626';
+        status.innerText = '✖ Export failed. See console for details.';
+        alert("Failed to generate PDF. Please ensure your browser supports HTML canvas rendering or try printing to PDF instead.");
+    } finally {
         // Restore interactive UI
         noPrintElems.forEach(el => el.style.display = '');
         printOnlyElems.forEach(el => el.style.display = 'none');
-    });
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        
+        // Hide success message after 4 seconds
+        setTimeout(() => { if (status.innerText.includes('✔')) status.style.display = 'none'; }, 4000);
+    }
 }
 </script>
 <style>
@@ -568,9 +595,11 @@ function exportToPDF() {
 @media print {
     .no-print { display: none !important; }
     .print-only { display: block !important; }
-    .content-area { max-width: 100%; margin: 0; }
+    .content-area { max-width: 100%; margin: 0; padding: 0; }
     .sidebar { display: none; }
     .main-content { margin-left: 0; }
+    body { background: #fff !important; color: #000 !important; }
+    .card { page-break-inside: avoid; border: 1px solid #ccc !important; }
 }
 </style>
 <?php include __DIR__ . '/partials/footer.php'; ?>

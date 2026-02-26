@@ -1,11 +1,11 @@
 <?php
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/db_new.php';
 session_start();
 
 $pageTitle   = 'Risk Register';
 $currentPage = 'risk';
-$db = getDB();
+$db = getAuditDB();
 
 $activeOrg = (int)($_SESSION['active_org'] ?? 0);
 
@@ -21,22 +21,30 @@ $validLevels = ['Low','Medium','High','Critical'];
 $params = [];
 $where  = '';
 if ($activeOrg) {
-    $where    = 'WHERE a.organization_id = ?';
+    $where    = 'WHERE au.organization_id = ?';
     $params[] = $activeOrg;
 }
 if ($filterLevel && in_array($filterLevel, $validLevels)) {
-    $where   .= ($where ? ' AND' : 'WHERE') . ' av.risk_level = ?';
+    $where   .= ($where ? ' AND' : 'WHERE') . ' (CASE WHEN av.risk_score >= 13 THEN \'Critical\' WHEN av.risk_score >= 8 THEN \'High\' WHEN av.risk_score >= 4 THEN \'Medium\' ELSE \'Low\' END) = ?';
     $params[] = $filterLevel;
 }
 
-$safeSort = ['risk_score'=>'av.risk_score','likelihood'=>'av.likelihood','impact'=>'av.impact','asset_name'=>'a.asset_name'][$sortCol];
+$safeSort = ['risk_score'=>'av.risk_score','likelihood'=>'av.assigned_likelihood','impact'=>'v.mapped_impact','asset_name'=>'a.name'][$sortCol];
 
 $riskRegister = $db->prepare("
-    SELECT av.id AS av_id, a.asset_name, v.name AS vuln_name, v.category,
-           av.likelihood, av.impact, av.risk_score, av.risk_level, v.impact_description
+    SELECT av.id AS av_id, a.name AS asset_name, v.vuln_name, v.category,
+           av.assigned_likelihood AS likelihood, '-' AS impact, av.risk_score, 
+           CASE 
+               WHEN av.risk_score >= 13 THEN 'Critical'
+               WHEN av.risk_score >= 8 THEN 'High'
+               WHEN av.risk_score >= 4 THEN 'Medium'
+               ELSE 'Low'
+           END AS risk_level, 
+            v.mapped_impact AS impact_description
     FROM asset_vulnerabilities av
     JOIN assets a ON a.id = av.asset_id
-    JOIN vulnerabilities v ON v.id = av.vulnerability_id
+    JOIN audits au ON au.id = a.audit_id
+    JOIN owasp_library v ON v.id = av.vuln_id
     $where
     ORDER BY $safeSort $sortDir
 ");
