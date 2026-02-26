@@ -39,10 +39,10 @@ Aplikasi ini memiliki 3 file database (`.sql`) yang **WAJIB** di-import secara b
 6. Klik tab menu **Import** (Ekspor/Impor) di bagian atas tampilan.
 7. Pada bagian *File to import*, klik tombol **Choose File** (Pilih File) dan cari file yang berada dalam folder kode aplikasi ini di komputer Anda. Anda **harus mengimpor 3 file secara berurutan, satu demi satu**:
    - **Langkah 1:** Pilih file `schema_new.sql` lalu geser ke paling bawah halaman phpMyAdmin dan klik tombol **Import** (atau tombol **'Go'**). *Tunggu sampai muncul notifikasi centang hijau "Import has been successfully finished".*
-   - **Langkah 2:** Kembali klik tab **Import**, pilih file `octave_schema.sql` lalu klik **Import/Go**. *Tunggu sampai sukses.*
+   - **Langkah 2:** Kembali klik tab **Import**, pilih file `octave_schema.sql` lalu klik **Import/Go**. *Tunggu sampai sukses. File ini mencakup tabel-tabel utama metode OCTAVE Allegro beserta data awal referensi (system_references).*
    - **Langkah 3:** Terakhir, klik tab **Import** sekali lagi, pilih file `schema_update.sql` lalu klik **Import/Go**. *Tunggu sampai sukses.*
 
-*(Selamat! Semua tabel database aplikasi kini sudah siap).*
+*(Selamat! Seluruh 11 tabel database aplikasi kini sudah siap).*
 
 ### 4. Konfigurasi File Pengaturan (`.env`)
 Aplikasi ini membaca konfigurasi (seperti nama database) melalui file bernama `.env`.
@@ -101,3 +101,4 @@ Aplikasi ini menggabungkan penilaian risiko dengan audit kepatuhan praktis end-t
 7. **Risk Register & 3x3 Matrix:** Lihat hasil kalkulasi risiko dan tetapkan respon mitigasi. Tersedia *Risk Matrix HTML visualizer* format 3x3.
 8. **Compliance & Findings:** Dapatkan ringkasan kepatuhan (Standard: Compliant ≥85%, Needs Improvement 60-84%, Non-Compliant <60%). Fitur *Auto Findings* langsung membuat rekomendasi teknis untuk tiap kontrol yang gagal (Partial/Non-Compliant).
 9. **Final Audit Report & Export:** Tentukan *Final Audit Opinion* dari struktur laporan komprehensif. Laporan dapat diekspor langsung berformat **Native PDF**.
+10. **Guidance & Info:** Gunakan menu *User Guide* untuk tutorial langkah demi langkah, dan menu *References* untuk menelaah basis akademik/metodologi. Referensi ini dapat ditambahkan secara dinamis jika Anda login sebagai Admin.
