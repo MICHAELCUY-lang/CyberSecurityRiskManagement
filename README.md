@@ -1,199 +1,79 @@
-# OCTAVE Allegro Cyber Risk & Security Audit Platform
+# Mini GRC & Security Audit Platform
+**Methodology:** OCTAVE Allegro + OWASP Vulnerability Integration
 
-Platform manajemen risiko siber berbasis PHP menggunakan metodologi **OCTAVE Allegro**, dirancang untuk keperluan akademik dan audit keamanan profesional.
-
----
-
-## Prasyarat
-
-Pastikan sudah terinstall:
-
-- **XAMPP** (PHP 8.x + MySQL 8.x) — [https://www.apachefriends.org](https://www.apachefriends.org)
-- **PHP 8.0+** (sudah termasuk dalam XAMPP)
-- **Git** (opsional)
+Platform manajemen risiko siber berbasis PHP yang mengintegrasikan alur kerja **OCTAVE Allegro** (pengukuran kriteria, pemrofilan aset, dan skenario ancaman) dengan manajemen kerentanan **OWASP** untuk audit keamanan profesional. Dibangun untuk memenuhi spesifikasi Mini GRC.
 
 ---
 
-## Instalasi
+## Prasyarat Server & Sistem
 
-### 1. Clone atau Salin Project
+- **PHP 8.2+** (PDO, cURL, JSON extensions diaktifkan)
+- **MySQL 8.x** atau MariaDB setara
+- **Browser Modern** (Chrome/Edge/Firefox) untuk rendering UI dan Ekspor PDF.
 
+---
+
+## Panduan Instalasi & Konfigurasi
+
+### 1. Persiapan Database (PENTING)
+Agar aplikasi dapat berjalan, Anda **WAJIB** menggunakan database `security_audit` beserta skema terbarunya. **Jangan gunakan database versi lama (`octave_audit`).**
+
+1. Buka terminal MySQL, PowerShell, atau phpMyAdmin.
+2. Buat database dan import skema menggunakan file `schema_new.sql` yang telah disediakan di root direktori.
+
+**Melalui Command Line (Contoh XAMPP Desktop):**
 ```powershell
-git clone https://github.com/username/repo.git c:\Security_Risk_Management
-cd c:\Security_Risk_Management
+& "C:\xampp\mysql\bin\mysql.exe" -u root -e "SOURCE c:/Security_Risk_Management/schema_new.sql;"
 ```
-Atau salin manual ke folder `c:\Security_Risk_Management\`.
+*(Perintah ini akan secara otomatis membuat ulang database `security_audit`, menata tabel, dan memasukkan data referensi/katalog OWASP).*
 
-### 2. Konfigurasi `.env`
+### 2. Konfigurasi Environment (`.env`)
+Aplikasi ini membaca konfigurasi melalui file `.env`.
 
-Salin template ke `.env`:
+1. Salin template `.env.example` menjadi `.env`:
+   ```powershell
+   copy .env.example .env
+   ```
+2. Buka `.env` dan sesuaikan pengaturan DB serta API Key AI:
+   ```env
+   # Database Configuration
+   DB_HOST=localhost
+   DB_NAME=security_audit
+   DB_USER=root
+   DB_PASS=
 
-```powershell
-copy .env.example .env
-```
+   # AI Integration (WAJIB diisi untuk fitur AI Explainer/Advisor)
+   AI_API_KEY=gsk_your_api_key_here
+   AI_PROVIDER=groq
+   AI_MODEL=llama-3.3-70b-versatile
+   ```
 
-Kemudian edit `.env` sesuai konfigurasi kamu:
-
-```env
-DB_HOST=localhost
-DB_NAME=octave_audit
-DB_USER=root
-DB_PASS=                  # Kosongkan jika XAMPP tanpa password
-
-AI_API_KEY=gsk_xxx...     # API key dari provider AI kamu
-AI_PROVIDER=groq          # Pilihan: groq | openai | gemini
-AI_MODEL=llama-3.3-70b-versatile
-```
-
-> **Catatan:** `.env` sudah ada di `.gitignore` — **tidak akan ikut ter-upload ke GitHub**. Hanya `.env.example` yang di-commit sebagai template.
-
-**Provider yang didukung:**
-
-| Provider | `AI_PROVIDER` | Contoh `AI_MODEL` | Dapatkan Key Di |
-|---|---|---|---|
-| Groq | `groq` | `llama-3.3-70b-versatile` | [console.groq.com](https://console.groq.com) |
-| OpenAI | `openai` | `gpt-4o` | [platform.openai.com](https://platform.openai.com) |
-| Google Gemini | `gemini` | `gemini-2.0-flash` | [aistudio.google.com](https://aistudio.google.com) |
-
-### 3. Jalankan MySQL (XAMPP)
-
-Buka **XAMPP Control Panel** → klik **Start** di baris **MySQL**.
-
-### 4. Import Database
-
-Buka terminal / PowerShell dan jalankan:
-
-```powershell
-& "C:\xampp\mysql\bin\mysql.exe" -u root -e "SOURCE c:/Security_Risk_Management/schema.sql;"
-```
-
-Ini akan membuat database `octave_audit` beserta semua tabel dan data awal (18 vulnerabilitas OWASP + 15 item checklist).
-
-### 5. Jalankan Server PHP
+### 3. Menjalankan Server Aplikasi
+Jalankan development server PHP bawaan langsung di direktori project:
 
 ```powershell
 cd c:\Security_Risk_Management
 php -S localhost:8080
 ```
 
-### 6. Buka di Browser
+Selanjutnya, buka browser dan akses: `http://localhost:8080/dashboard.php`
 
-```
-http://localhost:8080
-```
-
----
-
-## Struktur Folder
-
-```
-Security_Risk_Management/
-├── .env                   ← Konfigurasi lokal (TIDAK di-commit)
-├── .env.example           ← Template konfigurasi (aman di-commit)
-├── .gitignore             ← Mengecualikan .env & uploads dari Git
-├── README.md              ← Dokumentasi ini
-├── config.php             ← Load .env, konstanta
-├── db.php                 ← Koneksi PDO ke MySQL
-├── schema.sql             ← Skema database + seed data
-│
-├── index.php              ← Redirect ke dashboard
-├── dashboard.php          ← Halaman utama & KPI
-├── organization.php       ← Manajemen organisasi
-├── assets.php             ← Inventaris aset (CIA triad)
-├── vulnerabilities.php    ← Pemetaan kerentanan & risk engine
-├── risk.php               ← Risk register (sortable/filterable)
-├── audit.php              ← Audit checklist & upload bukti
-├── compliance.php         ← Skor kepatuhan & grafik
-├── findings.php           ← Temuan otomatis
-├── ai.php                 ← AI Advisor (Groq/OpenAI/Gemini)
-│
-├── partials/
-│   ├── header.php         ← CSS design system
-│   ├── sidebar.php        ← Navigasi sidebar
-│   └── footer.php         ← Penutup layout
-│
-└── uploads/               ← Penyimpanan file bukti audit (di-ignore Git)
-    └── .gitkeep           ← Menjaga folder tetap ada di repo
-```
+Masuk menggunakan kredensial default:
+- **Email/Username:** `admin@admin.com`
+- **Password:** `admin123`
 
 ---
 
-## Alur Penggunaan (OCTAVE Allegro)
+## Alur Kerja Aplikasi (Workflow)
 
-```
-Organization → Assets → Vulnerabilities → Risk Register
-     → Audit → Compliance → Findings → AI Advisor
-```
+Aplikasi ini menggabungkan penilaian risiko dengan audit kepatuhan praktis end-to-end:
 
-| Langkah | Halaman | Yang Dilakukan |
-|---|---|---|
-| 1 | **Organization** | Daftarkan organisasi, klik Set Active |
-| 2 | **Assets** | Tambah aset, isi nilai CIA (1–3) |
-| 3 | **Vulnerabilities** | Assign kerentanan OWASP ke aset, atur Likelihood & Impact |
-| 4 | **Risk Register** | Lihat risk score otomatis dengan filter & sort |
-| 5 | **Audit** | Isi status tiap kontrol audit, upload bukti (PDF/gambar) |
-| 6 | **Compliance** | Lihat skor kepatuhan % dan breakdown per aset |
-| 7 | **Findings** | Temuan otomatis dari risiko High/Critical & non-compliant |
-| 8 | **AI Advisor** | Tanya rekomendasi keamanan ke AI |
-
----
-
-## Risk Engine
-
-```
-Risk Score = Likelihood (1–5) × Impact (1–5)
-
-1–4   → Low
-5–9   → Medium
-10–14 → High
-15+   → Critical
-```
-
-## Compliance Formula
-
-```
-Compliance % = (Compliant / Total Non-N/A Controls) × 100
-
-≥ 80%  → Compliant
-50–79% → Needs Improvement
-< 50%  → Non-Compliant
-```
-
----
-
-## Fitur Otomatis
-
-- **Auto Risk Score** — dihitung saat kerentanan di-assign ke aset
-- **Auto Checklist** — item checklist dibuat otomatis untuk kerentanan "Weak Password Policy" dan "No HTTPS"
-- **Auto Findings** — temuan dibuat otomatis untuk risiko High/Critical dan hasil audit Non-Compliant
-- **Auto Compliance Score** — diperbarui setiap kali status audit disimpan
-
----
-
-## Reset Database (jika perlu)
-
-```powershell
-& "C:\xampp\mysql\bin\mysql.exe" -u root -e "DROP DATABASE IF EXISTS octave_audit;"
-& "C:\xampp\mysql\bin\mysql.exe" -u root -e "SOURCE c:/Security_Risk_Management/schema.sql;"
-```
-
----
-
-## Catatan Keamanan
-
-- API key **tidak pernah** dikirim ke browser — semua request AI dilakukan server-side via cURL
-- Semua query database menggunakan **PDO prepared statements**
-- Upload file divalidasi berdasarkan ekstensi (`jpg`, `png`, `gif`, `pdf`, `txt`) dan ukuran maksimal **5 MB**
-- Jangan expose file `.env` ke publik
-
----
-
-## Teknologi
-
-| Komponen | Teknologi |
-|---|---|
-| Backend | PHP 8.x (server-rendered) |
-| Database | MySQL 8.x via PDO |
-| Frontend | HTML + CSS (vanilla, no framework) |
-| Charts | Chart.js 4.x (CDN) |
-| AI | Groq / OpenAI / Google Gemini (cURL) |
+1. **Dashboard & Auth:** Login dan lihat metrik seluruh laporan audit.
+2. **New Audit:** Buat sesi audit baru, pilih Organisasi untuk kalkulasi *Exposure Level* otomatis, dan tentukan Auditee.
+3. **Asset Profiles:** Daftarkan aset informasi dan tentukan nilai C-I-A (Confidentiality, Integrity, Availability) untuk mendapatkan skor kritikalitas aset otomatis.
+4. **Vulnerability Assessment (OWASP):** Di menu aset, klik tombol **OWASP**. Centang kerentanan yang terdeteksi. Sistem secara otomatis akan memetakan *Impact*, menghitung *Likelihood*, dan membuat **OCTAVE Threat Scenarios**.
+5. **AI Explainer:** Gunakan ikon **✨ AI** pada daftar kerentanan OWASP untuk menampilkan modal penjelasan teknis dan bisnis cerdas dari AI.
+6. **Dynamic Control Checklist:** Klik 'Resume Checklist'. Sistem membangun daftar periksa kontrol spesifik secara otomatis berdasarkan kerentanan OWASP yang Anda pilih. (Status: Compliant / Partial / Non-Compliant / N/A).
+7. **Risk Register & 3x3 Matrix:** Lihat hasil kalkulasi risiko dan tetapkan respon mitigasi. Tersedia *Risk Matrix HTML visualizer* format 3x3.
+8. **Compliance & Findings:** Dapatkan ringkasan kepatuhan (Standard: Compliant ≥85%, Needs Improvement 60-84%, Non-Compliant <60%). Fitur *Auto Findings* langsung membuat rekomendasi teknis untuk tiap kontrol yang gagal (Partial/Non-Compliant).
+9. **Final Audit Report & Export:** Tentukan *Final Audit Opinion* dari struktur laporan komprehensif. Laporan dapat diekspor langsung berformat **Native PDF**.
