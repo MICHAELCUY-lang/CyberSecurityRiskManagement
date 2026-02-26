@@ -39,8 +39,8 @@ Aplikasi ini memiliki 3 file database (`.sql`) yang **WAJIB** di-import secara b
 6. Klik tab menu **Import** (Ekspor/Impor) di bagian atas tampilan.
 7. Pada bagian *File to import*, klik tombol **Choose File** (Pilih File) dan cari file yang berada dalam folder kode aplikasi ini di komputer Anda. Anda **harus mengimpor 3 file secara berurutan, satu demi satu**:
    - **Langkah 1:** Pilih file `schema_new.sql` lalu geser ke paling bawah halaman phpMyAdmin dan klik tombol **Import** (atau tombol **'Go'**). *Tunggu sampai muncul notifikasi centang hijau "Import has been successfully finished".*
-   - **Langkah 2:** Kembali klik tab **Import**, pilih file `schema_update.sql` lalu klik **Import/Go**. *Tunggu sampai sukses.*
-   - **Langkah 3:** Terakhir, klik tab **Import** sekali lagi, pilih file `octave_schema.sql` lalu klik **Import/Go**. *Tunggu sampai sukses.*
+   - **Langkah 2:** Kembali klik tab **Import**, pilih file `octave_schema.sql` lalu klik **Import/Go**. *Tunggu sampai sukses.*
+   - **Langkah 3:** Terakhir, klik tab **Import** sekali lagi, pilih file `schema_update.sql` lalu klik **Import/Go**. *Tunggu sampai sukses.*
 
 *(Selamat! Semua tabel database aplikasi kini sudah siap).*
 
