@@ -137,6 +137,4 @@ include __DIR__ . '/partials/sidebar.php';
 
         <?php endif; ?>
     </div>
-</div>
-</div>
 <?php include __DIR__ . '/partials/footer.php'; ?>

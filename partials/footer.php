@@ -1,10 +1,10 @@
 <?php
 /**
  * Partial: footer.php
- * Closes layout, main-content, adds Chart.js CDN if needed.
+ * Closes layout, main-content. Each page closes its own .content-area.
+ * Adds Chart.js CDN if needed, and any $extraJs.
  */
 ?>
-    </div><!-- /.content-area -->
 </div><!-- /.main-content -->
 </div><!-- /.layout -->
 
@@ -18,3 +18,4 @@
 
 </body>
 </html>
+

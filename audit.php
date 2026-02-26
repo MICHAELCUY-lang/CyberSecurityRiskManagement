@@ -1,181 +1,64 @@
 <?php
+/**
+ * audit.php — Security Audit Hub
+ * Lists all audits with their status, compliance score, risk level, and quick actions.
+ */
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/db.php';
-session_start();
+require_once __DIR__ . '/db_new.php';
+require_once __DIR__ . '/auth.php';
+requireLogin();
 
-$pageTitle   = 'Audit';
+$pageTitle   = 'Security Audits';
 $currentPage = 'audit';
-$db = getDB();
-$message = '';
-$error   = '';
 
-$activeOrg = (int)($_SESSION['active_org'] ?? 0);
+$db   = getAuditDB();
+$user = currentUser();
 
-// ============================================================
-// COMPLIANCE RECALCULATOR
-// ============================================================
-function recalcCompliance(PDO $db, int $orgId): void {
-    // Count audit_results for all assets in org
+// ── Load audits ──────────────────────────────────────────────
+if ($user['role'] === 'admin') {
     $stmt = $db->prepare("
-        SELECT ar.status, COUNT(*) AS cnt
-        FROM audit_results ar
-        JOIN assets a ON a.id = ar.asset_id
-        WHERE a.organization_id = ?
-        GROUP BY ar.status
+        SELECT a.*, u.name AS auditor_name,
+               o.name AS org_name, u2.name AS auditee_name,
+               (SELECT COUNT(*) FROM findings f WHERE f.audit_id = a.id) AS finding_count,
+               (SELECT COUNT(*) FROM audit_answers aa WHERE aa.audit_id = a.id) AS answer_count,
+               (SELECT COUNT(*) FROM evidence e WHERE e.audit_id = a.id) AS evidence_count
+        FROM audits a
+        JOIN users u ON u.id = a.auditor_id
+        LEFT JOIN organizations o ON o.id = a.organization_id
+        LEFT JOIN users u2 ON u2.id = a.auditee_id
+        ORDER BY a.created_at DESC
     ");
-    $stmt->execute([$orgId]);
-    $rows = $stmt->fetchAll();
-
-    $total     = 0;
-    $compliant = 0;
-    foreach ($rows as $r) {
-        if ($r['status'] !== 'not_applicable') {
-            $total += (int)$r['cnt'];
-            if ($r['status'] === 'compliant') {
-                $compliant += (int)$r['cnt'];
-            }
-        }
-    }
-
-    $pct = $total > 0 ? round($compliant / $total * 100, 2) : 0;
-    $status = $pct >= 80 ? 'Compliant' : ($pct >= 50 ? 'Needs Improvement' : 'Non-Compliant');
-
-    $db->prepare("
-        INSERT INTO compliance_scores (organization_id, score_percentage, status)
-        VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE score_percentage=VALUES(score_percentage), status=VALUES(status), calculated_at=NOW()
-    ")->execute([$orgId, $pct, $status]);
-}
-
-// ============================================================
-// AUTO-GENERATE FINDING FROM AUDIT RESULT
-// ============================================================
-function generateFindingFromAudit(PDO $db, int $assetId, string $checklistTitle, string $status): void {
-    if ($status !== 'non_compliant') return;
-
-    $aName = $db->prepare("SELECT asset_name FROM assets WHERE id=?");
-    $aName->execute([$assetId]);
-    $assetName = $aName->fetchColumn();
-
-    $issue = "[Non-Compliant] Audit control '{$checklistTitle}' failed for asset '{$assetName}'.";
-    $rec   = "Review and remediate the control '{$checklistTitle}' for '{$assetName}'. Implement corrective action and re-audit.";
-    $riskLevel = 'Medium'; // audit-based findings default Medium
-
-    $exists = $db->prepare("SELECT id FROM findings WHERE asset_id=? AND issue=?");
-    $exists->execute([$assetId, $issue]);
-    if (!$exists->fetchColumn()) {
-        $db->prepare("INSERT INTO findings (asset_id, issue, risk_level, recommendation) VALUES (?,?,?,?)")
-           ->execute([$assetId, $issue, $riskLevel, $rec]);
-    }
-}
-
-// ============================================================
-// HANDLE POST
-// ============================================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
-
-    if ($action === 'save_result') {
-        $arId    = (int)($_POST['ar_id'] ?? 0);
-        $status  = $_POST['status'] ?? 'not_applicable';
-        $notes   = trim($_POST['notes'] ?? '');
-        $assetId = (int)($_POST['asset_id'] ?? 0);
-
-        $validStatuses = ['compliant','partial','non_compliant','not_applicable'];
-        if (!in_array($status, $validStatuses)) $status = 'not_applicable';
-
-        if ($arId) {
-            $db->prepare("UPDATE audit_results SET status=?, notes=?, audited_at=NOW() WHERE id=?")
-               ->execute([$status, $notes, $arId]);
-        } else {
-            $checklistId = (int)($_POST['checklist_id'] ?? 0);
-            $db->prepare("
-                INSERT INTO audit_results (checklist_id, asset_id, status, notes)
-                VALUES (?,?,?,?)
-                ON DUPLICATE KEY UPDATE status=VALUES(status), notes=VALUES(notes), audited_at=NOW()
-            ")->execute([$checklistId, $assetId, $status, $notes]);
-        }
-
-        // Auto-finding for non_compliant
-        $cTitle = trim($_POST['checklist_title'] ?? '');
-        if ($cTitle && $assetId) {
-            generateFindingFromAudit($db, $assetId, $cTitle, $status);
-        }
-
-        // Recalculate compliance
-        if ($activeOrg) recalcCompliance($db, $activeOrg);
-
-        $message = 'Audit result saved. Compliance score recalculated.';
-    }
-
-    // File upload
-    if ($action === 'upload_evidence') {
-        $assetId = (int)($_POST['asset_id'] ?? 0);
-        if (!$assetId) {
-            $error = 'Select an asset for evidence upload.';
-        } elseif (!isset($_FILES['evidence_file']) || $_FILES['evidence_file']['error'] !== UPLOAD_ERR_OK) {
-            $error = 'No file uploaded or upload error occurred.';
-        } else {
-            $file     = $_FILES['evidence_file'];
-            $ext      = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            $allowed  = UPLOAD_ALLOWED;
-            $maxSize  = UPLOAD_MAX_SIZE;
-
-            if (!in_array($ext, $allowed)) {
-                $error = 'File type not allowed. Allowed: ' . implode(', ', $allowed);
-            } elseif ($file['size'] > $maxSize) {
-                $error = 'File too large. Maximum: ' . ($maxSize / 1024 / 1024) . ' MB.';
-            } else {
-                $safeName = date('Ymd_His') . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file['name']);
-                $dest     = UPLOAD_DIR . $safeName;
-                if (!is_dir(UPLOAD_DIR)) mkdir(UPLOAD_DIR, 0755, true);
-                if (move_uploaded_file($file['tmp_name'], $dest)) {
-                    $db->prepare("INSERT INTO evidence_files (asset_id, file_path, file_type) VALUES (?,?,?)")
-                       ->execute([$assetId, 'uploads/' . $safeName, $ext]);
-                    $message = 'Evidence file uploaded successfully.';
-                } else {
-                    $error = 'File move failed. Check uploads/ directory permissions.';
-                }
-            }
-        }
-    }
-}
-
-// --- Data ---
-$assets = [];
-if ($activeOrg) {
-    $stmt = $db->prepare("SELECT id, asset_name FROM assets WHERE organization_id=? ORDER BY asset_name");
-    $stmt->execute([$activeOrg]);
-    $assets = $stmt->fetchAll();
-}
-
-$selectedAsset = (int)($_GET['asset'] ?? ($assets[0]['id'] ?? 0));
-
-// Checklist items + existing results for selected asset
-$auditItems = [];
-if ($selectedAsset) {
-    // All checklist items (global + asset-linked auto-generated)
-    $auditItems = $db->prepare("
-        SELECT ac.id AS checklist_id, ac.title, ac.description, ac.framework_source,
-               COALESCE(ar.id, 0) AS ar_id,
-               COALESCE(ar.status, 'not_applicable') AS status,
-               COALESCE(ar.notes, '') AS notes,
-               ar.audited_at
-        FROM audit_checklist ac
-        LEFT JOIN audit_results ar ON ar.checklist_id = ac.id AND ar.asset_id = ?
-        ORDER BY ac.framework_source, ac.title
+    $stmt->execute();
+} else {
+    $stmt = $db->prepare("
+        SELECT a.*, u.name AS auditor_name,
+               o.name AS org_name, u2.name AS auditee_name,
+               (SELECT COUNT(*) FROM findings f WHERE f.audit_id = a.id) AS finding_count,
+               (SELECT COUNT(*) FROM audit_answers aa WHERE aa.audit_id = a.id) AS answer_count,
+               (SELECT COUNT(*) FROM evidence e WHERE e.audit_id = a.id) AS evidence_count
+        FROM audits a
+        JOIN users u ON u.id = a.auditor_id
+        LEFT JOIN organizations o ON o.id = a.organization_id
+        LEFT JOIN users u2 ON u2.id = a.auditee_id
+        WHERE a.auditor_id = ?
+        ORDER BY a.created_at DESC
     ");
-    $auditItems->execute([$selectedAsset]);
-    $auditItems = $auditItems->fetchAll();
+    $stmt->execute([$user['id']]);
 }
+$audits = $stmt->fetchAll();
 
-// Evidence files for selected asset
-$evidenceFiles = [];
-if ($selectedAsset) {
-    $stmt = $db->prepare("SELECT * FROM evidence_files WHERE asset_id=? ORDER BY uploaded_at DESC");
-    $stmt->execute([$selectedAsset]);
-    $evidenceFiles = $stmt->fetchAll();
-}
+// ── Summary stats ────────────────────────────────────────────
+$totalAudits    = count($audits);
+$avgCompliance  = $totalAudits > 0 ? round(array_sum(array_column($audits, 'compliance_score')) / $totalAudits, 1) : 0;
+$highRiskCount  = count(array_filter($audits, fn($a) => in_array($a['risk_level'], ['High', 'Critical'])));
+$completedCount = count(array_filter($audits, fn($a) => (int)$a['answer_count'] > 0));
+
+$levelColors = [
+    'Low'      => '#22c55e',
+    'Medium'   => '#ffdd55',
+    'High'     => '#f97316',
+    'Critical' => '#dc2626',
+];
 
 include __DIR__ . '/partials/header.php';
 include __DIR__ . '/partials/sidebar.php';
@@ -183,143 +66,196 @@ include __DIR__ . '/partials/sidebar.php';
 
 <div class="main-content">
     <div class="page-header">
-        <h1>Audit Controls</h1>
-        <span class="breadcrumb">OCTAVE Allegro / Audit</span>
+        <h1>Security Audits</h1>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <span class="breadcrumb">OCTAVE Allegro / Security Audit</span>
+            <a href="new_audit.php" class="btn" style="font-size:11px;padding:5px 16px;">+ New Audit</a>
+        </div>
     </div>
     <div class="content-area">
 
-        <?php if (!$activeOrg): ?>
-        <div class="alert alert-info">Select an active organization first. <a href="organization.php" style="color:inherit;text-decoration:underline;">Go to Organization</a></div>
-        <?php else: ?>
-
-        <?php if ($message): ?><div class="alert alert-success"><?= htmlspecialchars($message) ?></div><?php endif; ?>
-        <?php if ($error):   ?><div class="alert alert-error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-
-        <div style="display:grid;grid-template-columns:1fr 280px;gap:20px;">
-            <div>
-                <!-- Asset Selector -->
-                <div class="card" style="padding:14px 20px;">
-                    <form method="GET" action="audit.php" style="display:flex;align-items:center;gap:12px;">
-                        <label style="margin:0;white-space:nowrap;">Auditing Asset:</label>
-                        <select name="asset" onchange="this.form.submit()" style="flex:1;">
-                            <option value="">-- Select Asset --</option>
-                            <?php foreach ($assets as $a): ?>
-                            <option value="<?= $a['id'] ?>" <?= $a['id']==$selectedAsset ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($a['asset_name']) ?>
-                            </option>
-                            <?php endforeach ?>
-                        </select>
-                    </form>
+        <!-- ── KPI Summary ─────────────────────────────────── -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+            <?php
+            $kpis = [
+                ['label'=>'Total Audits',      'value'=>$totalAudits,              'color'=>'#fff'],
+                ['label'=>'Completed',          'value'=>$completedCount,           'color'=>'#22c55e'],
+                ['label'=>'Avg Compliance',     'value'=>$avgCompliance . '%',       'color'=>$avgCompliance >= 80 ? '#4a8cff' : ($avgCompliance >= 50 ? '#f0f0f0' : '#dc2626')],
+                ['label'=>'High / Critical Risk','value'=>$highRiskCount,           'color'=>$highRiskCount > 0 ? '#dc2626' : '#22c55e'],
+            ];
+            foreach ($kpis as $kpi):
+            ?>
+            <div class="card" style="text-align:center;padding:20px 16px;">
+                <div style="font-size:28px;font-weight:800;color:<?= $kpi['color'] ?>;letter-spacing:-.02em;">
+                    <?= $kpi['value'] ?>
                 </div>
-
-                <!-- Audit Checklist -->
-                <?php if ($selectedAsset && !empty($auditItems)): ?>
-                <?php
-                $currentFw = '';
-                foreach ($auditItems as $item):
-                    if ($item['framework_source'] !== $currentFw):
-                        if ($currentFw) echo '</div></div>'; // close previous group
-                        $currentFw = $item['framework_source'];
-                        echo '<div class="card"><div class="card-title">' . htmlspecialchars($currentFw) . '</div>';
-                    endif;
-                ?>
-                <div style="border:1px solid var(--border);border-radius:3px;padding:14px 16px;margin-bottom:12px;">
-                    <form method="POST" action="audit.php?asset=<?= $selectedAsset ?>">
-                        <input type="hidden" name="action" value="save_result">
-                        <input type="hidden" name="ar_id" value="<?= $item['ar_id'] ?>">
-                        <input type="hidden" name="checklist_id" value="<?= $item['checklist_id'] ?>">
-                        <input type="hidden" name="asset_id" value="<?= $selectedAsset ?>">
-                        <input type="hidden" name="checklist_title" value="<?= htmlspecialchars($item['title']) ?>">
-
-                        <div class="flex-between mb-1">
-                            <strong style="font-size:13px;"><?= htmlspecialchars($item['title']) ?></strong>
-                            <span class="badge badge-<?= str_replace('_','-',$item['status']) ?>">
-                                <?= str_replace('_',' ', $item['status']) ?>
-                            </span>
-                        </div>
-                        <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">
-                            <?= htmlspecialchars($item['description'] ?? '') ?>
-                        </p>
-                        <div class="form-grid" style="grid-template-columns:180px 1fr auto;">
-                            <div class="form-group">
-                                <label>Status</label>
-                                <select name="status">
-                                    <?php foreach (['compliant'=>'Compliant','partial'=>'Partial','non_compliant'=>'Non-Compliant','not_applicable'=>'Not Applicable'] as $val=>$lbl): ?>
-                                    <option value="<?= $val ?>" <?= $item['status']===$val ? 'selected' : '' ?>><?= $lbl ?></option>
-                                    <?php endforeach ?>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Notes / Evidence Reference</label>
-                                <input type="text" name="notes" value="<?= htmlspecialchars($item['notes']) ?>"
-                                       placeholder="Auditor notes...">
-                            </div>
-                            <div class="form-group" style="justify-content:flex-end;">
-                                <label>&nbsp;</label>
-                                <button type="submit" class="btn" style="white-space:nowrap;">Save</button>
-                            </div>
-                        </div>
-                        <?php if ($item['audited_at']): ?>
-                        <div style="font-size:10px;color:var(--text-dim);margin-top:4px;">
-                            Last audited: <?= htmlspecialchars($item['audited_at']) ?>
-                        </div>
-                        <?php endif; ?>
-                    </form>
+                <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-top:4px;">
+                    <?= $kpi['label'] ?>
                 </div>
-                <?php endforeach; ?>
-                <?php if ($currentFw) echo '</div></div>'; ?>
-
-                <?php elseif ($selectedAsset): ?>
-                <div class="alert alert-info">No checklist items linked to this asset yet. Assign vulnerabilities to auto-generate items, or they will use the global checklist.</div>
-                <?php endif; ?>
             </div>
+            <?php endforeach ?>
+        </div>
 
-            <!-- Sidebar: Evidence Upload -->
-            <div>
-                <div class="card">
-                    <div class="card-title">Evidence Upload</div>
-                    <?php if ($selectedAsset): ?>
-                    <form method="POST" enctype="multipart/form-data" action="audit.php?asset=<?= $selectedAsset ?>">
-                        <input type="hidden" name="action" value="upload_evidence">
-                        <input type="hidden" name="asset_id" value="<?= $selectedAsset ?>">
-                        <div class="form-group mb-2">
-                            <label>File (max 5 MB)</label>
-                            <input type="file" name="evidence_file" accept=".jpg,.jpeg,.png,.gif,.pdf,.txt" required>
-                            <div style="font-size:10px;color:var(--text-dim);margin-top:4px;">
-                                Allowed: jpg, png, gif, pdf, txt
-                            </div>
-                        </div>
-                        <button type="submit" class="btn" style="width:100%;">Upload Evidence</button>
-                    </form>
-
-                    <!-- Evidence file list -->
-                    <?php if (!empty($evidenceFiles)): ?>
-                    <div style="margin-top:16px;">
-                        <div class="card-title" style="margin-bottom:10px;">Uploaded Files</div>
-                        <?php foreach ($evidenceFiles as $ef): ?>
-                        <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">
-                            <a href="<?= htmlspecialchars($ef['file_path']) ?>" target="_blank"
-                               style="color:var(--text);text-decoration:underline;">
-                                <?= htmlspecialchars(basename($ef['file_path'])) ?>
-                            </a>
-                            <div style="font-size:10px;color:var(--text-dim);">
-                                <?= strtoupper($ef['file_type']) ?> &nbsp;|&nbsp;
-                                <?= date('d M Y H:i', strtotime($ef['uploaded_at'])) ?>
-                            </div>
-                        </div>
+        <!-- ── Audit Table ─────────────────────────────────── -->
+        <?php if (empty($audits)): ?>
+        <div class="card" style="text-align:center;padding:48px 24px;">
+            <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
+                No audits yet. Start your first security audit.
+            </div>
+            <a href="new_audit.php" class="btn">+ Start New Audit</a>
+        </div>
+        <?php else: ?>
+        <div class="card">
+            <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+                <span>Audit Records (<?= $totalAudits ?>)</span>
+                <a href="new_audit.php" class="btn" style="font-size:10px;padding:4px 14px;">+ New</a>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:32px;">#</th>
+                            <th>Organization</th>
+                            <th>System</th>
+                            <th>Users</th>
+                            <th>Date</th>
+                            <th style="text-align:center;">Risk</th>
+                            <th style="text-align:center;">Compliance</th>
+                            <th style="text-align:center;">Checklist</th>
+                            <th style="text-align:center;">Findings</th>
+                            <th style="text-align:center;">Evidence</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($audits as $i => $a):
+                            $lv      = $a['risk_level'] ?: 'Low';
+                            $lvColor = $levelColors[$lv] ?? '#888';
+                            $comp    = (float)$a['compliance_score'];
+                            $compColor = $comp >= 80 ? '#4a8cff' : ($comp >= 50 ? '#f0f0f0' : '#dc2626');
+                            $answered = (int)$a['answer_count'];
+                        ?>
+                        <tr>
+                            <td class="text-muted font-mono" style="font-size:10px;"><?= $i + 1 ?></td>
+                            <td style="font-size:11px;"><?= htmlspecialchars($a['org_name'] ?: '—') ?></td>
+                            <td>
+                                <div style="font-size:13px;font-weight:600;"><?= htmlspecialchars($a['system_name']) ?></div>
+                                <?php if ($a['description']): ?>
+                                <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">
+                                    <?= htmlspecialchars(substr($a['description'], 0, 60)) ?><?= strlen($a['description']) > 60 ? '…' : '' ?>
+                                </div>
+                                <?php endif ?>
+                                <?php if ($a['final_opinion']): ?>
+                                <span style="font-size:9px;color:var(--chart-blue);border:1px solid var(--chart-blue);padding:1px 4px;border-radius:2px;display:inline-block;margin-top:4px;">
+                                    <?= htmlspecialchars($a['final_opinion']) ?>
+                                </span>
+                                <?php endif ?>
+                            </td>
+                            <td style="font-size:10px;white-space:nowrap;">
+                                <div style="color:var(--text-muted);">Auditor: <?= htmlspecialchars($a['auditor_name']) ?></div>
+                                <?php if ($a['auditee_name']): ?>
+                                <div style="color:var(--chart-blue);margin-top:2px;">Auditee: <?= htmlspecialchars($a['auditee_name']) ?></div>
+                                <?php endif ?>
+                            </td>
+                            <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;"><?= htmlspecialchars($a['audit_date']) ?></td>
+                            <td style="text-align:center;">
+                                <?php if ($answered > 0): ?>
+                                <span style="font-size:10px;font-weight:700;color:<?= $lvColor ?>;
+                                             border:1px solid <?= $lvColor ?>44;border-radius:3px;padding:2px 8px;white-space:nowrap;">
+                                    <?= $lv ?>
+                                </span>
+                                <?php else: ?>
+                                <span style="font-size:10px;color:var(--text-dim);">—</span>
+                                <?php endif ?>
+                            </td>
+                            <td style="text-align:center;">
+                                <?php if ($answered > 0): ?>
+                                <span style="font-size:13px;font-weight:800;color:<?= $compColor ?>;">
+                                    <?= number_format($comp, 1) ?>%
+                                </span>
+                                <?php else: ?>
+                                <span style="font-size:10px;color:var(--text-dim);">Pending</span>
+                                <?php endif ?>
+                            </td>
+                            <td style="text-align:center;">
+                                <?php if ($answered > 0): ?>
+                                <span style="font-size:11px;color:#22c55e;font-weight:600;"><?= $answered ?>/10 ✓</span>
+                                <?php else: ?>
+                                <span style="font-size:10px;color:#ffdd55;">0/10</span>
+                                <?php endif ?>
+                            </td>
+                            <td style="text-align:center;">
+                                <span style="font-size:11px;<?= (int)$a['finding_count'] > 0 ? 'color:#dc2626;font-weight:600;' : 'color:var(--text-dim);' ?>">
+                                    <?= (int)$a['finding_count'] ?>
+                                </span>
+                            </td>
+                            <td style="text-align:center;">
+                                <span style="font-size:11px;color:var(--text-muted);"><?= (int)$a['evidence_count'] ?></span>
+                            </td>
+                            <td>
+                                <div style="display:flex;gap:5px;flex-wrap:nowrap;">
+                                    <?php if ($answered === 0): ?>
+                                    <a href="checklist.php?audit_id=<?= $a['id'] ?>"
+                                       class="btn" style="font-size:10px;padding:4px 10px;white-space:nowrap;">
+                                        ▶ Start
+                                    </a>
+                                    <?php else: ?>
+                                    <a href="checklist.php?audit_id=<?= $a['id'] ?>"
+                                       class="btn btn-ghost" style="font-size:10px;padding:4px 10px;white-space:nowrap;">
+                                        ↻ Redo
+                                    </a>
+                                    <a href="report_detail.php?id=<?= $a['id'] ?>"
+                                       class="btn btn-ghost" style="font-size:10px;padding:4px 10px;white-space:nowrap;">
+                                        📄 Report
+                                    </a>
+                                    <a href="ai_analysis.php?audit_id=<?= $a['id'] ?>"
+                                       class="btn btn-ghost" style="font-size:10px;padding:4px 10px;white-space:nowrap;">
+                                        🤖 AI
+                                    </a>
+                                    <?php endif ?>
+                                </div>
+                            </td>
+                        </tr>
                         <?php endforeach ?>
-                    </div>
-                    <?php endif; ?>
-
-                    <?php else: ?>
-                    <p class="text-muted" style="font-size:12px;">Select an asset to upload evidence.</p>
-                    <?php endif; ?>
-                </div>
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <?php endif; ?>
-    </div>
-</div>
-</div>
+        <!-- Audit workflow guide -->
+        <div class="card" style="margin-top:16px;">
+            <div class="card-title">Audit Workflow</div>
+            <div style="display:flex;gap:0;align-items:stretch;">
+                <?php
+                $wfSteps = [
+                    '1. New Audit'   => 'new_audit.php',
+                    '2. Checklist'   => '#',
+                    '3. Risk & Score'=> '#',
+                    '4. Evidence'    => 'evidence.php',
+                    '5. AI Analysis' => 'ai_analysis.php',
+                    '6. Report'      => 'reports.php',
+                ];
+                $wi = 0;
+                foreach ($wfSteps as $label => $link):
+                    $isFirst = $wi === 0;
+                    $wi++;
+                ?>
+                <a href="<?= $link ?>"
+                   style="flex:1;text-align:center;padding:10px 8px;border:1px solid var(--border);
+                          <?= !$isFirst ? 'border-left:none;' : '' ?>
+                          font-size:10px;font-weight:700;letter-spacing:.05em;text-decoration:none;
+                          color:var(--text-muted);background:var(--bg-elevated);
+                          transition:background .12s;"
+                   onmouseover="this.style.background='#222'"
+                   onmouseout="this.style.background='var(--bg-elevated)'">
+                    <?= htmlspecialchars($label) ?>
+                </a>
+                <?php endforeach ?>
+            </div>
+        </div>
+
+        <?php endif ?>
+
+    </div><!-- /.content-area -->
+</div><!-- /.main-content -->
 <?php include __DIR__ . '/partials/footer.php'; ?>

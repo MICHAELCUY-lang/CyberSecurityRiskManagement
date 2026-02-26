@@ -204,5 +204,4 @@ include __DIR__ . '/partials/sidebar.php';
 
     </div>
 </div>
-</div>
 <?php include __DIR__ . '/partials/footer.php'; ?>

@@ -157,6 +157,4 @@ function sortLink(string $col, string $label, string $currentCol, string $dir, s
 
         <?php endif; ?>
     </div>
-</div>
-</div>
 <?php include __DIR__ . '/partials/footer.php'; ?>
