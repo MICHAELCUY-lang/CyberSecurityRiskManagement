@@ -130,8 +130,8 @@ $isClassicActive = !$isOctaveActive && !$isGuidanceActive;
 
 <aside class="sidebar">
     <div class="sidebar-brand">
-        <div class="brand-title">⬢ Security Audit</div>
-        <div class="brand-sub">Risk Management Platform</div>
+        <div class="brand-title">⬢ Security Audit and Risk Assessment</div>
+        <div class="brand-sub">Risk Management and Audit Platform</div>
     </div>
 
     <div class="sidebar-menus">
